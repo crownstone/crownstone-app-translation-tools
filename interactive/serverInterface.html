@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<h2 id="connected">Connected: false</h2><br/>
+Enabled: <input type="checkbox" onchange="setEnabled()" id="enably" /> <br/><br/>
+<div id="details" style="display:none">
+File open:<h2 id="file"></h2>
+<input type="button" value="END-OF-FILE" onclick="endOfFile()" /><br/><br/>
+Original:<h3 id="original"></h3>
+Replaced with:<h3 id="replaced"></h3>
+<input type="button" value="COMMIT" onclick="commit()" /><br/>
+<input type="button" value="AUTO-EXTRACT-FILE" onclick="autoExtractFile()" /><br/>
+Allow variable first: <input type="checkbox" onchange="setAllowVarCheckbox()" id="Allowcheckboxy" />
+</div>
+<br/>
+<input id="pause" type="button" type="submit" style="height:300px; width:400px; background-color: #a0eb58" value="PAUSE" onclick="setPaused()"/>
+<script>
+  let PAUSED = false
+
+  let fileItem = document.getElementById('file')
+  let originalItem = document.getElementById('original')
+  let replacedItem = document.getElementById('replaced')
+  let connectedItem = document.getElementById('connected')
+  let checkboxy = document.getElementById('checkboxy')
+  let Allowcheckboxy = document.getElementById('Allowcheckboxy')
+  let enably = document.getElementById('enably')
+  let detailsDiv = document.getElementById('details')
+  let pauseButton = document.getElementById('pause')
+
+  let connected = false;
+  let connecting = false;
+  // Create WebSocket connection.
+  let socket = null;
+  setInterval(() => {
+    if (!connected && !connecting) {
+      connect();
+    }
+  }, 500)
+
+  function connect() {
+    connecting = true;
+    console.log("Attempting connection")
+    try {
+      socket = new WebSocket('ws://localhost:8080');
+      // Connection opened
+      socket.addEventListener('open', function (event) {
+        connected = true;
+        connectedItem.innerHTML = "Connected: true"
+        setCheckbox();
+        setEnabled();
+        setAllowVarCheckbox();
+        setPaused(false);
+      });
+
+      // Listen for messages
+      socket.addEventListener('message', function (event) {
+        console.log('Message from server ', event.data);
+        try {
+          let message = JSON.parse(event.data)
+          handleMessage(message);
+        }
+        catch(e) {}
+      });
+
+      socket.addEventListener('error', function (event) {
+        console.log('error', event);
+      });
+
+
+      socket.addEventListener('close', function (event) {
+        console.log('closed', event);
+        connected = false;
+        connectedItem.innerHTML = "Connected: false";
+        clear();
+        connecting = false;
+      });
+    }
+    catch (err) {
+      // do nothing
+      connecting = false;
+    }
+  }
+
+  function setCheckbox() {
+    if (connected) {
+      socket.send(JSON.stringify({type:"setAutoCommit", value: checkboxy.checked}));
+    }
+  }
+  function setAllowVarCheckbox() {
+    if (connected) {
+      socket.send(JSON.stringify({type:"setAllowVarFirst", value: Allowcheckboxy.checked}));
+    }
+  }
+  function autoExtractFile() {
+    if (connected) {
+      socket.send(JSON.stringify({type:"autoExtractFile", value: true}));
+    }
+  }
+  function setEnabled() {
+    if (connected) {
+      socket.send(JSON.stringify({type:"setEnabled", value: enably.checked}));
+    }
+    else {
+      enably.checked = false;
+    }
+
+    detailsDiv.style.display = enably.checked ? 'block' : 'none';
+  }
+
+  function setPaused(override) {
+    if (connected) {
+      if (override !== undefined) {
+        PAUSED = override;
+      }
+      else {
+        PAUSED = !PAUSED;
+      }
+      socket.send(JSON.stringify({type:"setPaused", value: PAUSED}));
+    }
+
+    pauseButton.style.backgroundColor = PAUSED ? '#eba845' : '#a0eb58';
+  }
+
+  function handleMessage(message) {
+    switch (message.type) {
+      case 'processed':
+        fileItem.innerHTML = message.filename;
+        originalItem.innerHTML = message.original;
+        replacedItem.innerHTML = message.replaced;
+        break;
+      case "newFile":
+        fileItem.innerHTML = message.filename;
+        originalItem.innerHTML = '';
+        replacedItem.innerHTML = '';
+        break;
+    }
+  }
+
+  function clear() {
+    fileItem.innerHTML = '';
+    originalItem.innerHTML = '';
+    replacedItem.innerHTML = '';
+  }
+
+  function commit() {
+    if (connected) {
+      socket.send(JSON.stringify({type:"commit"}));
+    }
+  }
+  function endOfFile() {
+    if (connected) {
+      socket.send(JSON.stringify({type:"reset"}));
+      clear()
+    }
+  }
+</script>
+</body>
+</html>

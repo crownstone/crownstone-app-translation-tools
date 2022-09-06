@@ -1,0 +1,11 @@
+{
+  "name": "crownstone-app-translation-tools",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node ./interactive/server.js"
+  },
+  "dependencies": {
+    "clipboardy": "^2.3.0",
+    "ws": "^7.3.0"
+  }
+}
